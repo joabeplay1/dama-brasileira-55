@@ -1,33 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Damas Online PRO</title>
+
+<style>
+body{
+  font-family:Arial;
+  background:#111;
+  color:#fff;
+  text-align:center;
+}
+
+input,button{
+  padding:10px;
+  margin:5px;
+}
+
+#board{
+  display:grid;
+  grid-template-columns:repeat(8,50px);
+  width:400px;
+  margin:20px auto;
+}
+
+.cell{
+  width:50px;
+  height:50px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.black{background:#7a4a22;}
+.white{background:#c8a878;}
+
+.piece{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+}
+
+.red{background:red;}
+.blue{background:blue;}
+
+#chat{
+  width:400px;
+  margin:auto;
+  text-align:left;
+  background:#222;
+  padding:10px;
+  border-radius:10px;
+}
+
+#info{
+  margin:10px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>🔥 Damas Online PRO</h2>
+
+<input id="roomInput" placeholder="Nome da sala">
+<button onclick="joinRoom()">Entrar / Criar Sala</button>
+
+<div id="info"></div>
+
+<div id="board"></div>
+
+<button onclick="playReplay()">🎬 Replay da Partida</button>
+
+<div id="chat">
+  <input id="msg" placeholder="mensagem">
+  <button onclick="sendMsg()">Enviar</button>
+  <div id="msgs"></div>
+</div>
+
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getDatabase,
   ref,
   set,
   onValue,
   update,
-  push
-} from "https://www.gstatic.com/firebasejs/12.12.0/firebase-database.js";
+  push,
+  get
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+/* 🔥 FIREBASE */
 const firebaseConfig = {
-  apiKey: "AIzaSyAEhCjjnW2dzOd1gRLc0KHkf3lOEYqje0c",
-  authDomain: "dama-77.firebaseapp.com",
-  databaseURL: "https://dama-77-default-rtdb.firebaseio.com",
-  projectId: "dama-77",
-  storageBucket: "dama-77.firebasestorage.app",
-  messagingSenderId: "267002047594",
-  appId: "1:267002047594:web:911ef1cb65d84a44a26e13"
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_PROJETO.firebaseapp.com",
+  databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+  projectId: "SEU_PROJETO"
 };
 
-// INIT
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-/* AGORA O FIREBASE JÁ FUNCIONA */
-window.db = db;
-window.ref = ref;
-window.set = set;
-window.onValue = onValue;
-window.update = update;
-window.push = push;
+/* ===== ESTADO ===== */
+let room=null;
+let myColor=null;
+let board=createBoard();
+let turn="black";
+let selected=null;
+let history=[];
+
+/* ===== TABULEIRO ===== */
+function createBoard(){
+  let b=Array(8).fill(null).map(()=>Array(8).fill(""));
+
+  for(let r=0;r<3;r++)
+    for(let c=0;c<8;c++)
+      if((r+c)%2==1) b[r][c]="b";
+
+  for(let r=5;r<8;r++)
+    for(let c=0;c<8;c++)
+      if((r+c)%2==1) b[r][c]="w";
+
+  return b;
+}
+
+/* ===== CAPTURA OBRIGATÓRIA ===== */
+function hasCapture(color){
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const p=board[r][c];
+      if(!p || p[0]!==color[0]) continue;
+      if(canCapture(r,c)) return true;
+    }
+  }
+  return false;
+}
+
+function canCapture(r,c){
+  const dirs=[[1,1],[1,-1],[-1,1],[-1,-1]];
+  const p=board[r][c];
+
+  for(let [dr,dc] of dirs){
+    let mr=r+dr, mc=c+dc;
+    let lr=r+dr*2, lc=c+dc*2;
+
+    if(lr<0||lc<0||lr>7||lc>7) continue;
+
+    if(board[mr][mc] &&
+       board[mr][mc][0]!==p[0] &&
+       board[lr][lc]===""){
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ===== VALIDAÇÃO ANTI-HACK ===== */
+function validMove(sr,sc,tr,tc,color){
+
+  if(turn!==color) return false;
+
+  let p=board[sr][sc];
+  if(!p || p[0]!==color[0]) return false;
+
+  let dr=tr-sr;
+  let dc=tc-sc;
+
+  /* movimento simples */
+  if(Math.abs(dr)==1 && Math.abs(dc)==1){
+    if(hasCapture(color)) return false;
+    return board[tr][tc]==="";
+  }
+
+  /* captura */
+  if(Math.abs(dr)==2 && Math.abs(dc)==2){
+    let mr=(sr+tr)/2;
+    let mc=(sc+tc)/2;
+
+    return board[mr][mc] &&
+           board[mr][mc][0]!==color[0] &&
+           board[tr][tc]==="";
+  }
+
+  return false;
+}
+
+/* ===== ENTRAR SALA ===== */
+window.joinRoom = function(){
+
+  room=document.getElementById("roomInput").value;
+  if(!room) return;
+
+  const roomRef=ref(db,"rooms/"+room);
+
+  onValue(roomRef,(snap)=>{
+    const data=snap.val();
+    if(!data) return;
+
+    board=data.board;
+    turn=data.turn;
+    history=data.history||[];
+
+    /* AUTO COR */
+    if(!myColor){
+      if(!data.players.black){
+        myColor="black";
+        update(roomRef,{"players/black":true});
+      } else if(!data.players.white){
+        myColor="white";
+        update(roomRef,{"players/white":true});
+      }
+    }
+
+    draw();
+    updateInfo();
+  });
+};
+
+/* ===== JOGADA ===== */
+window.move=function(r,c){
+
+  if(!selected){
+    if(board[r][c] && board[r][c][0]===myColor[0]){
+      selected=[r,c];
+    }
+    return;
+  }
+
+  let [sr,sc]=selected;
+
+  if(validMove(sr,sc,r,c,myColor)){
+
+    board[r][c]=board[sr][sc];
+    board[sr][sc]="";
+
+    if(Math.abs(r-sr)==2){
+      board[(r+sr)/2][(c+sc)/2]="";
+    }
+
+    turn=turn==="black"?"white":"black";
+
+    history.push({
+      board:JSON.parse(JSON.stringify(board)),
+      turn
+    });
+
+    update(ref(db,"rooms/"+room),{
+      board,
+      turn,
+      history
+    });
+  }
+
+  selected=null;
+  draw();
+};
+
+/* ===== REPLAY ===== */
+window.playReplay = function(){
+
+  let i=0;
+
+  let interval=setInterval(()=>{
+
+    if(i>=history.length){
+      clearInterval(interval);
+      return;
+    }
+
+    board=history[i].board;
+    turn=history[i].turn;
+
+    draw();
+    i++;
+
+  },500);
+};
+
+/* ===== DESENHAR ===== */
+function draw(){
+  const el=document.getElementById("board");
+  el.innerHTML="";
+
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+
+      let d=document.createElement("div");
+      d.className="cell "+((r+c)%2?"black":"white");
+
+      if(board[r][c]){
+        let p=document.createElement("div");
+        p.className="piece "+(board[r][c]==="b"?"red":"blue");
+        d.appendChild(p);
+      }
+
+      d.onclick=()=>move(r,c);
+      el.appendChild(d);
+    }
+  }
+}
+
+/* ===== INFO ===== */
+function updateInfo(){
+  document.getElementById("info").innerText=
+  "Você: "+myColor+" | Turno: "+turn;
+}
+
+/* ===== CHAT ===== */
+window.sendMsg=function(){
+  push(ref(db,"rooms/"+room+"/chat"),{
+    text:document.getElementById("msg").value,
+    color:myColor
+  });
+};
+
+onValue(ref(db,"rooms/"+room+"/chat"),snap=>{
+  let d=snap.val()||{};
+  document.getElementById("msgs").innerHTML=
+    Object.values(d).map(m=>
+      `<div><b>${m.color}:</b> ${m.text}</div>`
+    ).join("");
+});
+
 </script>
+
+</body>
+</html>
