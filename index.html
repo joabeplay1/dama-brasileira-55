@@ -3,8 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Damas Brasileira</title>
+<title>Damas Brasileira Online</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
 <style>
+/* ... MANTENHA TODO O SEU CSS ORIGINAL AQUI ... */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', sans-serif; background: #1a1008; color: #f5f0e8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
 h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rgba(245,200,66,0.4); margin-bottom: 4px; }
@@ -26,7 +30,6 @@ h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rg
 .start-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #c8922a, #a06a10); border: none; color: #fff; font-size: 1.1rem; font-weight: 800; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
 .start-btn:hover { background: linear-gradient(135deg, #daa030, #b87a20); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(200,146,42,0.4); }
 .start-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
-
 #game { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; }
 .game-header { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .back-btn, .restart-btn { background: transparent; border: 1px solid #4a3520; color: #a0917a; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
@@ -43,7 +46,6 @@ h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rg
 .player-stats { font-size: 0.72rem; color: #a0917a; }
 .active-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: pulse 1.5s ease-in-out infinite; margin-left: auto; flex-shrink: 0; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
 .board-wrap { position: relative; border-radius: 12px; overflow: hidden; border: 4px solid #5a3a1a; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
 #board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(480px, calc(100vw - 40px)); height: min(480px, calc(100vw - 40px)); }
 .sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: filter 0.1s; }
@@ -54,7 +56,6 @@ h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rg
 .sq.valid-move:hover, .sq.capture-move:hover { filter: brightness(1.2); }
 .sq .coord-r { position: absolute; left: 2px; top: 2px; font-size: 9px; opacity: 0.4; color: #c8a878; }
 .sq .coord-c { position: absolute; right: 2px; bottom: 2px; font-size: 9px; opacity: 0.4; color: #c8a878; }
-
 .piece { width: 80%; height: 80%; border-radius: 50%; position: relative; cursor: pointer; transition: transform 0.15s; z-index: 1; }
 .piece:hover { transform: scale(1.05); }
 .piece.selected { transform: scale(1.1); box-shadow: 0 0 0 3px #fbbf24, 0 0 0 5px rgba(251,191,36,0.3); z-index: 2; }
@@ -65,10 +66,8 @@ h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rg
 .piece.white-k { background: radial-gradient(circle at 35% 30%, #fff, #ddd 70%); border: 2px solid #ffd700; }
 .piece .crown { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 45%; color: #ffd700; text-shadow: 0 0 6px rgba(255,215,0,0.8); }
 @keyframes goldPulse { 0%,100%{box-shadow:0 0 8px 2px rgba(255,215,0,0.3)} 50%{box-shadow:0 0 16px 6px rgba(255,215,0,0.6)} }
-
 .turn-indicator { margin-top: 8px; font-size: 0.78rem; color: #a0917a; text-align: center; }
 .mandatory-capture { color: #f87171; font-weight: 700; animation: pulse 1s ease-in-out infinite; margin-top: 4px; }
-
 .winner-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
 .winner-card { background: #2a1e10; border: 2px solid #c8922a; border-radius: 20px; padding: 40px 32px; text-align: center; max-width: 320px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,0.8); }
 .trophy { font-size: 3.5rem; display: block; margin-bottom: 12px; }
@@ -94,13 +93,17 @@ h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rg
   <div class="mode-grid">
     <button class="mode-btn" id="mode-pvp" onclick="selectMode('pvp')">
       <span class="icon">👥</span>
-      <span class="label">Jogador vs Jogador</span>
-      <span class="desc">Jogue com um amigo</span>
+      <span class="label">PVP Local</span>
+      <span class="desc">Jogue no mesmo PC</span>
     </button>
-    <button class="mode-btn" id="mode-bot" onclick="selectMode('bot')">
+    <button class="mode-btn" id="mode-online" onclick="selectMode('online')">
+      <span class="icon">🌐</span>
+      <span class="label">Multiplayer Online</span>
+      <span class="desc">Desafie alguém na rede</span>
+    </button>
+    <button class="mode-btn" id="mode-bot" onclick="selectMode('bot')" style="grid-column: span 2;">
       <span class="icon">🤖</span>
       <span class="label">Jogador vs Bot</span>
-      <span class="desc">Desafie a máquina</span>
     </button>
   </div>
 
@@ -109,15 +112,15 @@ h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rg
     <div class="diff-btns">
       <button class="diff-btn active" id="diff-easy" onclick="selectDiff('easy')">
         <span style="color:#4ade80;font-size:1.1rem">⚡</span>
-        <div><div class="dlabel">Fácil</div><div class="ddesc">Joga aleatoriamente</div></div>
+        <div><div class="dlabel">Fácil</div><div class="ddesc">Aleatório</div></div>
       </button>
       <button class="diff-btn" id="diff-medium" onclick="selectDiff('medium')">
         <span style="color:#fbbf24;font-size:1.1rem">🧠</span>
-        <div><div class="dlabel">Médio</div><div class="ddesc">Jogadas básicas</div></div>
+        <div><div class="dlabel">Médio</div><div class="ddesc">Básico</div></div>
       </button>
       <button class="diff-btn" id="diff-hard" onclick="selectDiff('hard')">
         <span style="color:#f87171;font-size:1.1rem">✨</span>
-        <div><div class="dlabel">Difícil</div><div class="ddesc">Estratégia avançada</div></div>
+        <div><div class="dlabel">Difícil</div><div class="ddesc">Estratégico</div></div>
       </button>
     </div>
   </div>
@@ -174,7 +177,20 @@ h1 { font-size: 2rem; font-weight: 800; color: #f5c842; text-shadow: 0 0 16px rg
 </div>
 
 <script>
-// ===== GAME LOGIC =====
+// CONFIGURAÇÃO FIREBASE (COLOQUE A SUA AQUI)
+const firebaseConfig = {
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_PROJETO.firebaseapp.com",
+  databaseURL: "https://SEU_PROJETO.firebaseio.com",
+  projectId: "SEU_PROJETO",
+  storageBucket: "SEU_PROJETO.appspot.com",
+  messagingSenderId: "ID",
+  appId: "APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// VARIÁVEIS DO JOGO MANTIDAS
 const EMPTY = null, BLACK = 'b', WHITE = 'w', BLACK_KING = 'B', WHITE_KING = 'W';
 const isBlack = p => p === BLACK || p === BLACK_KING;
 const isWhite = p => p === WHITE || p === WHITE_KING;
@@ -184,6 +200,12 @@ const opponentOf = player => player === 'black' ? 'white' : 'black';
 const inBounds = (r, c) => r >= 0 && r < 8 && c >= 0 && c < 8;
 const cloneBoard = b => b.map(r => [...r]);
 
+let gameMode='pvp', difficulty='easy', board=[], currentPlayer='black', selectedPiece=null, validMoves=[], winner=null, botTimer=null, moveCount=0;
+let menuMode=null, menuDiff='easy';
+let myOnlineColor = null; // 'black' ou 'white'
+let onlineGameID = 'sala_unica'; // Para testes, use uma sala fixa
+
+// ... TODAS AS SUAS FUNÇÕES LÓGICAS (createInitialBoard, getSimpleMoves, etc) MANTIDAS ...
 function createInitialBoard() {
   const b = Array(8).fill(null).map(() => Array(8).fill(EMPTY));
   for (let r = 0; r < 3; r++) for (let c = 0; c < 8; c++) if ((r+c)%2===1) b[r][c] = WHITE;
@@ -270,10 +292,6 @@ function getAllMoves(board, player) {
   return allSimple;
 }
 
-function getMovesForPiece(board, r, c, player) {
-  return getAllMoves(board, player).filter(m=>m.from[0]===r&&m.from[1]===c);
-}
-
 function applyMove(board, move) {
   const nb=cloneBoard(board);
   const piece=nb[move.from[0]][move.from[1]];
@@ -306,7 +324,7 @@ function countPieces(board) {
   return {black,white,blackKings,whiteKings};
 }
 
-// ===== BOT AI =====
+// ===== BOT AI MANTIDO =====
 function evaluateBoard(board, botPlayer) {
   const counts=countPieces(board);
   const opp=opponentOf(botPlayer);
@@ -351,24 +369,22 @@ function getBotMove(board, botPlayer, difficulty) {
     for (const m of moves) { const s=evaluateBoard(applyMove(board,m),botPlayer); if (s>bs) {bs=s;bm=[m];} else if (s===bs) bm.push(m); }
     return bm[Math.floor(Math.random()*bm.length)];
   }
-  // hard
   let bs=-Infinity, bm=moves[0];
   for (const m of moves) { const s=minimax(applyMove(board,m),4,-Infinity,Infinity,false,botPlayer,opponentOf(botPlayer)); if (s>bs) {bs=s;bm=m;} }
   return bm;
 }
 
-// ===== UI STATE =====
-let gameMode='pvp', difficulty='easy', board=[], currentPlayer='black', selectedPiece=null, validMoves=[], winner=null, botTimer=null, moveCount=0;
-let menuMode=null, menuDiff='easy';
-
-// ===== MENU =====
+// ===== MENU MODIFICADO =====
 function selectMode(mode) {
   menuMode=mode;
-  document.getElementById('mode-pvp').classList.toggle('active', mode==='pvp');
-  document.getElementById('mode-bot').classList.toggle('active', mode==='bot');
+  ['pvp','bot','online'].forEach(m => {
+    const el = document.getElementById('mode-'+m);
+    if(el) el.classList.toggle('active', m===mode);
+  });
   document.getElementById('diff-section').style.display = mode==='bot'?'block':'none';
   const btn=document.getElementById('start-btn');
-  btn.disabled=false; btn.textContent='Iniciar Partida';
+  btn.disabled=false; 
+  btn.textContent = mode === 'online' ? 'Conectar à Sala' : 'Iniciar Partida';
 }
 
 function selectDiff(diff) {
@@ -379,34 +395,146 @@ function selectDiff(diff) {
 function startGame() {
   if (!menuMode) return;
   gameMode=menuMode; difficulty=menuDiff;
+  
+  if (gameMode === 'online') {
+    joinOnlineGame();
+  } else {
+    setupUI();
+    initGame();
+  }
+}
+
+function setupUI() {
   document.getElementById('menu').style.display='none';
   document.getElementById('game').style.display='flex';
-  document.getElementById('game').style.flexDirection='column';
-  document.getElementById('game').style.alignItems='center';
-
-  const sub = gameMode==='pvp' ? 'Jogador vs Jogador' : `vs Bot (${{'easy':'Fácil','medium':'Médio','hard':'Difícil'}[difficulty]})`;
+  const sub = gameMode==='pvp' ? 'Jogador vs Jogador' : 
+              gameMode==='bot' ? `vs Bot (${difficulty})` : 'Multiplayer Online';
   document.getElementById('game-subtitle').textContent=sub;
-  document.getElementById('name-white').textContent = gameMode==='bot' ? `Bot (${{'easy':'Fácil','medium':'Médio','hard':'Difícil'}[difficulty]})` : 'Jogador 2 (Brancas)';
-  document.getElementById('name-black').textContent = gameMode==='bot' ? 'Você (Pretas)' : 'Jogador 1 (Pretas)';
-
-  initGame();
 }
 
-function goHome() {
-  clearTimeout(botTimer);
-  document.getElementById('winner-overlay').style.display='none';
-  document.getElementById('game').style.display='none';
-  document.getElementById('menu').style.display='block';
+// ===== LÓGICA ONLINE (NOVA) =====
+function joinOnlineGame() {
+    const gameRef = db.ref('games/' + onlineGameID);
+    gameRef.once('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data || data.winner) {
+            // Criar sala
+            myOnlineColor = 'black';
+            gameRef.set({
+                board: createInitialBoard(),
+                currentPlayer: 'black',
+                p1_connected: true,
+                p2_connected: false,
+                moveCount: 0,
+                winner: null
+            });
+            alert("Você é o Jogador 1 (Pretas). Aguardando oponente...");
+        } else if (!data.p2_connected) {
+            // Entrar na sala
+            myOnlineColor = 'white';
+            gameRef.update({ p2_connected: true });
+            alert("Conectado! Você é o Jogador 2 (Brancas).");
+        } else {
+            alert("Sala cheia! Tente novamente mais tarde.");
+            return;
+        }
+        setupUI();
+        listenToOnlineMoves();
+    });
 }
 
-// ===== GAME =====
+function listenToOnlineMoves() {
+    db.ref('games/' + onlineGameID).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        board = data.board;
+        currentPlayer = data.currentPlayer;
+        moveCount = data.moveCount;
+        winner = data.winner;
+        
+        renderBoard();
+        updateUI();
+        if (winner) showWinner(winner);
+    });
+}
+
+// ===== HANDLES E EXECUÇÃO (MODIFICADOS) =====
+function handleClick(r, c) {
+  if (winner) return;
+  
+  // Trava para o bot
+  if (gameMode==='bot' && currentPlayer==='white') return;
+  
+  // Trava para Multiplayer Online: Só clica se for sua cor e sua vez
+  if (gameMode === 'online') {
+      if (currentPlayer !== myOnlineColor) return;
+  }
+
+  const piece=board[r][c];
+  if (piece && isPlayerPiece(piece, currentPlayer)) {
+    const allMoves=getAllMoves(board,currentPlayer);
+    const pMoves=allMoves.filter(m=>m.from[0]===r&&m.from[1]===c);
+    if (pMoves.length>0) { selectedPiece=[r,c]; validMoves=pMoves; renderBoard(); updateUI(); return; }
+  }
+
+  if (selectedPiece) {
+    const move=validMoves.find(m=>m.to[0]===r&&m.to[1]===c);
+    if (move) { executeMove(move); return; }
+  }
+
+  selectedPiece=null; validMoves=[]; renderBoard(); updateUI();
+}
+
+function executeMove(move) {
+  board=applyMove(board,move); 
+  selectedPiece=null; 
+  validMoves=[]; 
+  moveCount++;
+  
+  const w=checkWinner(board,currentPlayer);
+  
+  if (gameMode === 'online') {
+      // Sincroniza com Firebase
+      db.ref('games/' + onlineGameID).update({
+          board: board,
+          currentPlayer: opponentOf(myOnlineColor),
+          moveCount: moveCount,
+          winner: w
+      });
+  } else {
+      // Lógica Local (Original)
+      if (w) { winner=w; renderBoard(); updateUI(); showWinner(w); return; }
+      currentPlayer=opponentOf(currentPlayer);
+      renderBoard(); updateUI();
+      if (gameMode==='bot'&&currentPlayer==='white') scheduleBotMove();
+  }
+}
+
+// ... RESTO DAS FUNÇÕES (initGame, restartGame, goHome, scheduleBotMove, showWinner) MANTIDAS ...
 function initGame() {
   board=createInitialBoard(); currentPlayer='black'; selectedPiece=null; validMoves=[]; winner=null; moveCount=0;
   document.getElementById('winner-overlay').style.display='none';
   renderBoard(); updateUI();
 }
 
-function restartGame() { clearTimeout(botTimer); initGame(); }
+function goHome() {
+  clearTimeout(botTimer);
+  if(gameMode === 'online') db.ref('games/' + onlineGameID).off(); // Para de ouvir o Firebase
+  document.getElementById('winner-overlay').style.display='none';
+  document.getElementById('game').style.display='none';
+  document.getElementById('menu').style.display='block';
+}
+
+function restartGame() { 
+    clearTimeout(botTimer); 
+    if(gameMode === 'online') {
+        db.ref('games/' + onlineGameID).set(null); // Limpa sala no Firebase
+        joinOnlineGame();
+    } else {
+        initGame(); 
+    }
+}
 
 function renderBoard() {
   const el=document.getElementById('board'); el.innerHTML='';
@@ -449,43 +577,14 @@ function updateUI() {
   document.getElementById('dot-black').style.display=currentPlayer==='black'?'block':'none';
 
   const turnEl=document.getElementById('turn-indicator');
-  turnEl.textContent=`${currentPlayer==='black'?'⚫':'⚪'} Vez das ${currentPlayer==='black'?'Pretas':'Brancas'} · Jogada ${moveCount}`;
+  let status = `${currentPlayer==='black'?'⚫':'⚪'} Vez das ${currentPlayer==='black'?'Pretas':'Brancas'}`;
+  if(gameMode === 'online') status += myOnlineColor === currentPlayer ? " (Sua Vez!)" : " (Esperando...)";
+  
+  turnEl.textContent=`${status} · Jogada ${moveCount}`;
 
   const mandEl=document.getElementById('mandatory-capture');
   const hasCap=validMoves.length>0&&validMoves[0].captures.length>0;
   mandEl.style.display=(hasCap&&!winner)?'block':'none';
-}
-
-function handleClick(r, c) {
-  if (winner || (gameMode==='bot'&&currentPlayer==='white')) return;
-  const piece=board[r][c];
-
-  if (piece && isPlayerPiece(piece, currentPlayer)) {
-    const allMoves=getAllMoves(board,currentPlayer);
-    const pMoves=allMoves.filter(m=>m.from[0]===r&&m.from[1]===c);
-    if (pMoves.length>0) { selectedPiece=[r,c]; validMoves=pMoves; renderBoard(); updateUI(); return; }
-  }
-
-  if (selectedPiece) {
-    const move=validMoves.find(m=>m.to[0]===r&&m.to[1]===c);
-    if (move) { executeMove(move); return; }
-    if (piece && isPlayerPiece(piece, currentPlayer)) {
-      const allMoves=getAllMoves(board,currentPlayer);
-      const pMoves=allMoves.filter(m=>m.from[0]===r&&m.from[1]===c);
-      if (pMoves.length>0) { selectedPiece=[r,c]; validMoves=pMoves; renderBoard(); updateUI(); return; }
-    }
-  }
-
-  selectedPiece=null; validMoves=[]; renderBoard(); updateUI();
-}
-
-function executeMove(move) {
-  board=applyMove(board,move); selectedPiece=null; validMoves=[]; moveCount++;
-  const w=checkWinner(board,currentPlayer);
-  if (w) { winner=w; renderBoard(); updateUI(); showWinner(w); return; }
-  currentPlayer=opponentOf(currentPlayer);
-  renderBoard(); updateUI();
-  if (gameMode==='bot'&&currentPlayer==='white') scheduleBotMove();
 }
 
 function scheduleBotMove() {
